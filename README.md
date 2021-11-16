@@ -1,4 +1,4 @@
-# numerate_python
+# numerate
 
 A command-line utility to find and alter numbers in text files. Designed to be useful for Standard Ebooks producers (standardebooks.org).
 
