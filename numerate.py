@@ -20,7 +20,7 @@ class Options:
     pattern = "{NUMBER}"
     regex_str = r"(\d+)"
     backup = False
-    increment_value = 0  # this becomes 1 for increment, -1 for decrement, 0 for no change
+    increment_value = 0  # 1 for increment, -1 for decrement, 0 for no change
 
 integers = []
 ordinals = []
@@ -29,7 +29,7 @@ def prepareStringCompares():
     '''
     Prepares two large arrays with possible text values of numbers, 
     both integer (eg SIX) and ordinal (SIXTH)
-    
+
     Note that this only covers numbers up to 99
     '''
     global integers
