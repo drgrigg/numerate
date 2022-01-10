@@ -21,16 +21,21 @@ class Options:
     regex_str = r"(\d+)"
     backup = False
     increment_value = 0  # 1 for increment, -1 for decrement, 0 for no change
+    file_increment = False
+    counter = 1
 
 integers = []
 ordinals = []
 
+
 def prepareStringCompares():
     '''
     Prepares two large arrays with possible text values of numbers, 
-    both integer (eg SIX) and ordinal (SIXTH)
+    both integer (eg FIFTY-SIX) and ordinal (FIFTY-SIXTH).
 
-    Note that this only covers numbers up to 99
+    Note that this only covers numbers up to 99.
+
+    We only need to call this if either the .source or .destination is TEXT.
     '''
     global integers
     global ordinals
@@ -55,26 +60,22 @@ def prepareStringCompares():
 
 
 def process_file(filename: Path, opts: Options):
+    global file_increment_counter
     text_file = open(filename, "r")
     text_lines = text_file.readlines()
     if opts.backup:
-        backname = Path(filename.parent, filename.stem + ".bak")
-        back_file = open(backname, "w")
-        back_file.writelines(text_lines)
-        back_file.flush()
-        back_file.close()
-        back_file.close()
+        make_backup(filename, text_lines)
     new_lines = []
     pattern = regex.compile(opts.regex_str)
     for text_line in text_lines:
         for match in pattern.finditer(text_line):
             stringval = match.group(1)
-            if opts.source == NumFormat.ARABIC: 
+            if opts.source == NumFormat.ARABIC:
                 found_value = int(stringval) # should only be found if it WAS an integer
-                text_line = transform_integer(opts, found_value, text_line)
+                text_line = transform_integer(opts, found_value, text_line, stringval)
             elif opts.source == NumFormat.ROMAN:
                 # stringval may or may not be a valid roman numeral
-                found_value, ok = get_roman(stringval)
+                found_value, ok = get_roman(stringval)               
                 if ok:
                     text_line = transform_integer(opts, found_value, text_line, stringval)
             elif opts.source == NumFormat.TEXT:
@@ -87,6 +88,14 @@ def process_file(filename: Path, opts: Options):
     text_file.writelines(new_lines)
     text_file.flush()
     text_file.close()
+
+def make_backup(filename, text_lines):
+    backname = Path(filename.parent, filename.stem + ".bak")
+    back_file = open(backname, "w")
+    back_file.writelines(text_lines)
+    back_file.flush()
+    back_file.close()
+    back_file.close()
 
 def convert_text(numstr: str) -> Tuple[int, bool]:
     numstr = numstr.replace(" ", "-")
@@ -114,10 +123,14 @@ def is_integer(found_str) -> bool:
 
 
 def transform_integer(opts: Options, num: int, text_line: str, textnum: str = "") -> str:
-    num += opts.increment_value  # may be zero, -1 or +1
+    if opts.file_increment:
+        num = opts.counter
+        opts.counter += opts.increment_value  # may be zero, -1 or +1
+    else:  # ordinary increment/decrement
+        num += opts.increment_value  # may be zero, -1 or +1
     if opts.destination == NumFormat.ROMAN:
         romstr = roman.toRoman(num)
-        text_line = text_line.replace(str(num), romstr, 1)
+        text_line = text_line.replace(textnum, romstr, 1)
     elif opts.destination == NumFormat.ARABIC:
         text_line = text_line.replace(textnum, str(num), 1)
     elif opts.destination == NumFormat.TEXT:
@@ -133,11 +146,14 @@ def main():
     parser.add_argument('-t', '--to', dest='to_format', type=str, default='arabic', help='destination format (roman, arabic, text)')
     parser.add_argument('-b', '--backup', action='store_true', help='create a backup file')
     parser.add_argument('-i', '--increment', action='store_true', help='increment the value found by 1')
+    parser.add_argument('-g', '--increment_global', action='store_true', help='increment the found value for each file')
     parser.add_argument('-d', '--decrement', action='store_true', help='decrement the value found by 1')
-    parser.add_argument('-p', "--pattern", dest='pattern', type=str, default='{NUMBER}',
-                        help='pattern for where to find the number, eg "<h2>CHAPTER {NUMBER}</h2>"')
+    parser.add_argument('-p', "--pattern", dest='pattern', type=str, default='<h2>CHAPTER {NUMBER}</h2>',
+                        help='pattern for where to find the number. angle brackets and quotes must be escaped')
     parser.add_argument("directory", metavar="DIRECTORY", help="source directory to process")
  
+    # directory = "/Users/david/OneDrive/Standard Ebooks/TEMP/author-name_title-of-book"
+
     args = parser.parse_args()
     
     options = Options()
@@ -163,13 +179,20 @@ def main():
     if args.decrement:
         options.increment_value = -1
 
+    if args.increment_global:
+        options.file_increment = True
+        if args.decrement:
+            options.increment_value = -1
+        else:
+            options.increment_value = 1
+
+
     if options.destination == options.source and options.increment_value == 0:
         # nothing to do
-        print("Destination format is the same as source format, nothing to do")
-        return
-     
-    if args.pattern:
-        options.pattern = args.pattern
+        print("Destination format is the same as source format, and no increment requested, so there's nothing to do")
+        return  
+
+    options.pattern = args.pattern
 
     if options.source == NumFormat.ARABIC:
         options.regex_str = options.pattern.replace('{NUMBER}', r'(\d+)')
@@ -184,13 +207,19 @@ def main():
     if options.source == NumFormat.TEXT or options.destination == NumFormat.TEXT:
         prepareStringCompares()
 
+    file_list = []
+
     for root, directories, files in os.walk(directory):
         for filename in files:
             filepath = Path(root,filename)
-            print(filepath)
-            if filepath.suffix in [".txt", ".html", ".xhtml", ".md"]:
-                process_file(filepath, options)
+            if ".git" not in root:
+                print(filepath)
+                if filepath.suffix in [".txt", ".html", ".xhtml", ".md"]:
+                    file_list.append(filepath)
 
+    file_list.sort()
+    for f in file_list:
+        process_file(f, options)
 
 if __name__ == '__main__':
     main()

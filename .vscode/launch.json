@@ -7,14 +7,9 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": [
-                "--from", "TEXT", 
-                "--to", "TEXT", 
-                "--pattern", ">CHAPTER {NUMBER}<",
-                "--backup",
-                "--increment",
-                "/Users/david/Dropbox/PycharmProjects/numerate/samples" 
-            ]
+            "args": ["-g", 
+                "--pattern='\<h2\>{NUMBER}\</h2\>'",
+                "/Users/david/OneDrive/Standard Ebooks/TEMP/author-name_title-of-book"]
         }
     ]
 }
